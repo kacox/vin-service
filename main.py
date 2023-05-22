@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from db import get_connection, VehicleTable
+
 import requests
 
 NHSTA_BASE_URL = "https://vpic.nhtsa.dot.gov/api/"
@@ -21,7 +23,13 @@ def extract_from_response(response):
         if result["Variable"] == "Body Class":
             body_class = result["Value"]
 
-    return vin, make, model, model_year, body_class
+    return {
+        "vin": vin,
+        "make": make,
+        "model": model,
+        "model_year": model_year,
+        "body_class": body_class,
+    }
 
 
 @app.get("/lookup/{vin}")
@@ -34,21 +42,22 @@ async def lookup_vehicle(vin):
             alphanumeric characters.)
         - add pydantic model for vehicle (the return obj)
     """
-    # check cache first
-    response = requests.get(
-        NHSTA_BASE_URL + f"/vehicles/DecodeVin/{vin}", params={"format": "json"},
-    ).json()
-    vin, make, model, model_year, body_class = extract_from_response(response)
-    # store result in cache
+    conn = get_connection()
 
-    return {
-        "vin": vin,
-        "make": make,
-        "model": model,
-        "model_year": model_year,
-        "body_class": body_class,
-        "from_cache": False,
-    }
+    with conn:
+        vehicle = VehicleTable.get_by_vin(conn, vin)
+        if vehicle:
+            vehicle["from_cache"] = True
+        else:
+            response = requests.get(
+                NHSTA_BASE_URL + f"/vehicles/DecodeVin/{vin}", params={"format": "json"},
+            ).json()
+            vehicle_data = extract_from_response(response)
+            vehicle = VehicleTable.create(conn, vehicle_data)
+            print(f"lookup_vehicle:vehicle post insert is {vehicle}")
+            vehicle["from_cache"] = False
+
+    return vehicle
 
 
 @app.delete("/remove/{vin}")
@@ -56,7 +65,11 @@ async def remove_vehicle(vin):
     """
     Removes a vehicle by VIN.
     """
-    # remove from cache
+    conn = get_connection()
+
+    with conn:
+        pass
+
     return {
         "vin": vin,
         "removal_success": True,
