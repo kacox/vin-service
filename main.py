@@ -1,7 +1,8 @@
-from fastapi import FastAPI
 from db import get_connection, VehicleTable
 
 import requests
+from fastapi import FastAPI
+
 
 NHSTA_BASE_URL = "https://vpic.nhtsa.dot.gov/api/"
 
@@ -86,6 +87,14 @@ async def export_cache():
     """
     Exports the SQLite database cache and return a binary file (parquet
     format) containing the data in the cache.
+
+    Note: ideally in production you would return a link (e.g. an S3
+    link) that clients could use to download the file instead of
+    allowing direct server downloads.
     """
-    # put cache into parquet file
-    return
+    conn = get_connection()
+
+    with conn:
+        parquet = VehicleTable.get_db_as_parquet(conn)
+
+    return parquet

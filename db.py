@@ -1,5 +1,8 @@
 import sqlite3
 
+from pandas import read_sql_query
+
+
 conn = None
 
 
@@ -62,5 +65,6 @@ class VehicleTable:
                 "vin": vehicle_data[4],
             }
 
-    def get_all(conn):
-        pass
+    def get_db_as_parquet(conn):
+        db_dataframe = read_sql_query("SELECT * FROM vehicle", conn)
+        return db_dataframe.to_parquet('vehicle.parq', index=False)
