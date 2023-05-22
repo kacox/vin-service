@@ -1,6 +1,27 @@
 from fastapi import FastAPI
+import requests
+
+NHSTA_BASE_URL = "https://vpic.nhtsa.dot.gov/api/"
+
 
 app = FastAPI()
+
+
+def extract_from_response(response):
+    vin, make, model, model_year, body_class = None, None, None, None, None
+
+    vin = response["SearchCriteria"].lstrip("VIN:")
+    for result in response["Results"]:
+        if result["Variable"] == "Make":
+            make = result["Value"]
+        if result["Variable"] == "Model":
+            model = result["Value"]
+        if result["Variable"] == "Model Year":
+            model_year = result["Value"]
+        if result["Variable"] == "Body Class":
+            body_class = result["Value"]
+
+    return vin, make, model, model_year, body_class
 
 
 @app.get("/lookup/{vin}")
@@ -13,17 +34,19 @@ async def lookup_vehicle(vin):
             alphanumeric characters.)
         - add pydantic model for vehicle (the return obj)
     """
-    # check cache
-    # if not in cache
-        # call vPIC API
-        # store result in cache
+    # check cache first
+    response = requests.get(
+        NHSTA_BASE_URL + f"/vehicles/DecodeVin/{vin}", params={"format": "json"},
+    ).json()
+    vin, make, model, model_year, body_class = extract_from_response(response)
+    # store result in cache
 
     return {
         "vin": vin,
-        "make": "",
-        "model": "",
-        "model_year": "",
-        "body_class": "",
+        "make": make,
+        "model": model,
+        "model_year": model_year,
+        "body_class": body_class,
         "from_cache": False,
     }
 
