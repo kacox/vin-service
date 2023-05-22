@@ -68,12 +68,17 @@ async def remove_vehicle(vin):
     conn = get_connection()
 
     with conn:
-        pass
-
-    return {
-        "vin": vin,
-        "removal_success": True,
-    }
+        vehicle = VehicleTable.delete_by_vin(conn, vin)
+        if vehicle:
+            return {
+                "vin": vin,
+                "removal_success": False,
+            }
+        else:
+            return {
+                "vin": vin,
+                "removal_success": True,
+            }
 
 
 @app.post("/export")

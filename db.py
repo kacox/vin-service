@@ -33,7 +33,13 @@ class VehicleTable:
         return vehicle
 
     def delete_by_vin(conn, vin):
-        pass
+        conn.execute(
+            """
+            DELETE from vehicle WHERE vin = ?
+            """,
+            (vin,)
+        )
+        return VehicleTable.get_by_vin(conn, vin)
 
     def get_by_vin(conn, vin):
         cur = conn.execute(
