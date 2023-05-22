@@ -1,17 +1,22 @@
+from typing import Annotated
+
 from db import get_connection, VehicleTable
 
 import requests
-from fastapi import FastAPI
+from fastapi import FastAPI, Path
 
 
 NHSTA_BASE_URL = "https://vpic.nhtsa.dot.gov/api/"
+VIN_REGEX = "^\w{17}$"
 
 
 app = FastAPI()
 
 
 def extract_from_response(response):
-    vin, make, model, model_year, body_class = None, None, None, None, None
+    vin, make, model, model_year, body_class = (
+        None, None, None, None, None,
+    )
 
     vin = response["SearchCriteria"].lstrip("VIN:")
     for result in response["Results"]:
@@ -34,14 +39,11 @@ def extract_from_response(response):
 
 
 @app.get("/lookup/{vin}")
-async def lookup_vehicle(vin):
+async def lookup_vehicle(
+    vin: Annotated[str, Path(regex=VIN_REGEX)],
+):
     """
     Looks up a vechicle by VIN.
-
-    TODO:
-        - add pydantic model for vin (It should contain exactly 17
-            alphanumeric characters.)
-        - add pydantic model for vehicle (the return obj)
     """
     conn = get_connection()
 
@@ -51,7 +53,8 @@ async def lookup_vehicle(vin):
             vehicle["from_cache"] = True
         else:
             response = requests.get(
-                NHSTA_BASE_URL + f"/vehicles/DecodeVin/{vin}", params={"format": "json"},
+                NHSTA_BASE_URL + f"/vehicles/DecodeVin/{vin}",
+                params={"format": "json"},
             ).json()
             vehicle_data = extract_from_response(response)
             vehicle = VehicleTable.create(conn, vehicle_data)
@@ -62,7 +65,9 @@ async def lookup_vehicle(vin):
 
 
 @app.delete("/remove/{vin}")
-async def remove_vehicle(vin):
+async def remove_vehicle(
+    vin: Annotated[str, Path(regex=VIN_REGEX)],
+):
     """
     Removes a vehicle by VIN.
     """
