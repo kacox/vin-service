@@ -1,14 +1,21 @@
+import logging
+from dataclasses import asdict
 from typing import Annotated
 
-from db import get_connection, VehicleTable
 
 import requests
-from fastapi import FastAPI, Path
+from fastapi import FastAPI, Path, Response
+
+from db import get_connection, Vehicle, VehicleTable, VIN_REGEX
 
 
 NHSTA_BASE_URL = "https://vpic.nhtsa.dot.gov/api/"
-VIN_REGEX = "^\w{17}$"
 
+logging.config.fileConfig("logging.conf")
+# TODO: fix logging.conf; in the meantime remove duplicate logging here
+uvicorn_logger = logging.getLogger("uvicorn")
+uvicorn_logger.removeHandler(uvicorn_logger.handlers[0])
+LOGGER = logging.getLogger("vinService")
 
 app = FastAPI()
 
@@ -22,20 +29,22 @@ def extract_from_response(response):
     for result in response["Results"]:
         if result["Variable"] == "Make":
             make = result["Value"]
-        if result["Variable"] == "Model":
+        elif result["Variable"] == "Model":
             model = result["Value"]
-        if result["Variable"] == "Model Year":
+        elif result["Variable"] == "Model Year":
             model_year = result["Value"]
-        if result["Variable"] == "Body Class":
+        elif result["Variable"] == "Body Class":
             body_class = result["Value"]
+        else:
+            continue
 
-    return {
-        "vin": vin,
-        "make": make,
-        "model": model,
-        "model_year": model_year,
-        "body_class": body_class,
-    }
+    return Vehicle(
+        vin = vin,
+        make = make,
+        model = model,
+        model_year = model_year,
+        body_class = body_class,
+    )
 
 
 @app.get("/lookup/{vin}")
@@ -46,22 +55,22 @@ async def lookup_vehicle(
     Looks up a vechicle by VIN.
     """
     conn = get_connection()
-
+    cached = False
     with conn:
         vehicle = VehicleTable.get_by_vin(conn, vin)
         if vehicle:
-            vehicle["from_cache"] = True
+            cached = True
         else:
             response = requests.get(
                 NHSTA_BASE_URL + f"/vehicles/DecodeVin/{vin}",
                 params={"format": "json"},
             ).json()
             vehicle_data = extract_from_response(response)
+            LOGGER.info(f"Vehicle {vin} fetched from NHSTA API")
             vehicle = VehicleTable.create(conn, vehicle_data)
-            print(f"lookup_vehicle:vehicle post insert is {vehicle}")
-            vehicle["from_cache"] = False
-
-    return vehicle
+    response = asdict(vehicle)
+    response["from_cache"] = cached
+    return response
 
 
 @app.delete("/remove/{vin}")
@@ -102,4 +111,4 @@ async def export_cache():
     with conn:
         parquet = VehicleTable.get_db_as_parquet(conn)
 
-    return parquet
+    return Response(parquet, status_code=200)

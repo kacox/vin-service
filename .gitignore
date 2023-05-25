@@ -1,3 +1,4 @@
 __pycache__
-*.db
-*.parq
+*.db*
+*.git
+*.parq*
