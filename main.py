@@ -6,7 +6,7 @@ from typing import Annotated
 import requests
 from fastapi import FastAPI, Path, Response
 
-from db import get_connection, Vehicle, VehicleTable, VIN_REGEX
+from db import Vehicle, VehicleTable, VIN_REGEX
 
 
 NHSTA_BASE_URL = "https://vpic.nhtsa.dot.gov/api/"
@@ -54,20 +54,18 @@ async def lookup_vehicle(
     """
     Looks up a vechicle by VIN.
     """
-    conn = get_connection()
     cached = False
-    with conn:
-        vehicle = VehicleTable.get_by_vin(conn, vin)
-        if vehicle:
-            cached = True
-        else:
-            response = requests.get(
-                NHSTA_BASE_URL + f"/vehicles/DecodeVin/{vin}",
-                params={"format": "json"},
-            ).json()
-            vehicle_data = extract_from_response(response)
-            LOGGER.info(f"Vehicle {vin} fetched from NHSTA API")
-            vehicle = VehicleTable.create(conn, vehicle_data)
+    vehicle = VehicleTable.get_by_vin(vin)
+    if vehicle:
+        cached = True
+    else:
+        response = requests.get(
+            NHSTA_BASE_URL + f"/vehicles/DecodeVin/{vin}",
+            params={"format": "json"},
+        ).json()
+        vehicle_data = extract_from_response(response)
+        LOGGER.info(f"Vehicle {vin} fetched from NHSTA API")
+        vehicle = VehicleTable.create(vehicle_data)
     response = asdict(vehicle)
     response["from_cache"] = cached
     return response
@@ -80,20 +78,17 @@ async def remove_vehicle(
     """
     Removes a vehicle by VIN.
     """
-    conn = get_connection()
-
-    with conn:
-        vehicle = VehicleTable.delete_by_vin(conn, vin)
-        if vehicle:
-            return {
-                "vin": vin,
-                "removal_success": False,
-            }
-        else:
-            return {
-                "vin": vin,
-                "removal_success": True,
-            }
+    vehicle = VehicleTable.delete_by_vin(vin)
+    if vehicle:
+        return {
+            "vin": vin,
+            "removal_success": False,
+        }
+    else:
+        return {
+            "vin": vin,
+            "removal_success": True,
+        }
 
 
 @app.post("/export")
@@ -106,9 +101,6 @@ async def export_cache():
     link) that clients could use to download the file instead of
     allowing direct server downloads.
     """
-    conn = get_connection()
-
-    with conn:
-        parquet = VehicleTable.get_db_as_parquet(conn)
+    parquet = VehicleTable.get_db_as_parquet()
 
     return Response(parquet, status_code=200)

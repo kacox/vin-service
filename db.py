@@ -48,41 +48,49 @@ def _row_to_vehicle(row):
 
 class VehicleTable:
 
-    def create(conn, vehicle):
-        cur = conn.execute(
-            """
-            INSERT INTO vehicle VALUES
-            (:body_class, :make, :model, :model_year, :vin)
-            """,
-            asdict(vehicle),
-        )
+    def create(vehicle):
+        conn = get_connection()
+        with conn:
+            cur = conn.execute(
+                """
+                INSERT INTO vehicle VALUES
+                (:body_class, :make, :model, :model_year, :vin)
+                """,
+                asdict(vehicle),
+            )
         LOGGER.info(f"Inserted vehicle {vehicle.vin} into cache")
         return vehicle
 
-    def delete_by_vin(conn, vin):
-        cur = conn.execute(
-            """
-            DELETE from vehicle WHERE vin = :vin
-            """,
-            {"vin": vin}
-        )
-        LOGGER.info(f"Deleted {cur.rowcount} rows")
-        return VehicleTable.get_by_vin(conn, vin)
+    def delete_by_vin(vin):
+        conn = get_connection()
+        with conn:
+            cur = conn.execute(
+                """
+                DELETE from vehicle WHERE vin = :vin
+                """,
+                {"vin": vin}
+            )
+            LOGGER.info(f"Deleted {cur.rowcount} rows")
+        return VehicleTable.get_by_vin(vin)
 
-    def get_by_vin(conn, vin):
-        cur = conn.execute(
-            """
-            SELECT * FROM vehicle WHERE vin = :vin
-            """,
-            {"vin": vin}
-        )
-        vehicle_data = cur.fetchone()
-        if vehicle_data:
-            LOGGER.info(f"Vehicle {vin} found in cache")
-        else:
-            LOGGER.info(f"Vehicle {vin} not in cache")
+    def get_by_vin(vin):
+        conn = get_connection()
+        with conn:
+            cur = conn.execute(
+                """
+                SELECT * FROM vehicle WHERE vin = :vin
+                """,
+                {"vin": vin}
+            )
+            vehicle_data = cur.fetchone()
+            if vehicle_data:
+                LOGGER.info(f"Vehicle {vin} found in cache")
+            else:
+                LOGGER.info(f"Vehicle {vin} not in cache")
         return _row_to_vehicle(vehicle_data)
 
-    def get_db_as_parquet(conn):
-        db_dataframe = read_sql_query("SELECT * FROM vehicle", conn)
+    def get_db_as_parquet():
+        conn = get_connection()
+        with conn:
+            db_dataframe = read_sql_query("SELECT * FROM vehicle", conn)
         return db_dataframe.to_parquet('vehicle.parquet', index=False)
