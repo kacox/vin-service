@@ -29,6 +29,13 @@ Removes the specified vehicle's information from the cache.
 
 Returns a parquet file containing all vehicles currently in the cache.
 
+## Development
+
+To run tests, from the top level directory execute:
+```
+python -m pytest
+```
+
 ## Additional info
 
 This webservice uses the vPIC API provided by the NHSTA to lookup

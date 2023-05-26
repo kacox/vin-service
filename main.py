@@ -18,6 +18,9 @@ app = FastAPI()
 
 
 def extract_from_response(response):
+    if not response:
+        raise ValueError("Response is empty or missing")
+
     vin, make, model, model_year, body_class = (
         None, None, None, None, None,
     )
@@ -79,12 +82,12 @@ async def remove_vehicle(
     if vehicle:
         return {
             "vin": vin,
-            "removal_success": False,
+            "success": False,
         }
     else:
         return {
             "vin": vin,
-            "removal_success": True,
+            "success": True,
         }
 
 

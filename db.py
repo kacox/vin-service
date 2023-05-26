@@ -7,16 +7,20 @@ from pandas import read_sql_query
 
 
 LOGGER = logging.getLogger("vinService")
+PARQUET_FILE_LOCATION = "vehicle.parquet"
 _SQLITE_CONN = None
 VIN_REGEX= "^[A-Z0-9]{17}$"
 VIN_PATTERN = re.compile(VIN_REGEX)
 
 
-def get_connection():
+def get_connection(testing=False):
     # in production would use SQLAlchemy to manage connection pool
     global _SQLITE_CONN
     if not _SQLITE_CONN:
-        _SQLITE_CONN = sqlite3.connect("vehicle.db")
+        if testing:
+            _SQLITE_CONN = sqlite3.connect(":memory:")
+        else:
+            _SQLITE_CONN = sqlite3.connect("vehicle.db")
         _SQLITE_CONN.row_factory = sqlite3.Row
     return _SQLITE_CONN
 
@@ -93,4 +97,7 @@ class VehicleTable:
         conn = get_connection()
         with conn:
             db_dataframe = read_sql_query("SELECT * FROM vehicle", conn)
-        return db_dataframe.to_parquet('vehicle.parquet', index=False)
+        return db_dataframe.to_parquet(
+            PARQUET_FILE_LOCATION,
+            index=False
+        )
