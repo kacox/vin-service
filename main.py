@@ -1,7 +1,7 @@
 import logging
+import logging.config
 from dataclasses import asdict
 from typing import Annotated
-
 
 import requests
 from fastapi import FastAPI, Path, Response
@@ -12,9 +12,6 @@ from db import Vehicle, VehicleTable, VIN_REGEX
 NHSTA_BASE_URL = "https://vpic.nhtsa.dot.gov/api/"
 
 logging.config.fileConfig("logging.conf")
-# TODO: fix logging.conf; in the meantime remove duplicate logging here
-uvicorn_logger = logging.getLogger("uvicorn")
-uvicorn_logger.removeHandler(uvicorn_logger.handlers[0])
 LOGGER = logging.getLogger("vinService")
 
 app = FastAPI()
